@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-## Author:	t0pep0
-## e-mail:	t0pep0.gentoo@gmail.com
-## Jabber:	t0pep0@jabber.ru
-## BTC   :	1ipEA2fcVyjiUnBqUx7PVy5efktz2hucb
-## donate free =)
 import hmac
 import hashlib
 import time
@@ -46,12 +40,12 @@ class api:
 
  def __post(self, url, param): ##Post Request (Low Level API call)
   params = urllib.urlencode(param)
-  req = urllib2.Request(url, params, {'User-agent': 'bot-cex.io-'+self.__username})
+  req = urllib2.Request(url, params, {'User-agent': 'bot'})
   page = urllib2.urlopen(req).read()
   return page;
  
  def api_call(self, method, param = {}, private = 0, couple = ''): ## api call (Middle level)
-  url = 'https://cex.io/api/'+method+'/' ##generate url
+  url = 'https://markets.cx/api/'+method+'/' ##generate url
   if couple != '': 
    url = url + couple + '/' ##set couple if needed
   if private == 1: ##add auth-data if needed
@@ -63,23 +57,23 @@ class api:
   answer = self.__post(url, param); ##Post Request
   return json.loads(answer) ## generate dict and return
  
- def ticker(self, couple = 'GHS/BTC'):
+ def ticker(self, couple = 'KHS/LTC'):
   return self.api_call('ticker', {}, 0, couple)
 
- def order_book(self, couple = 'GHS/BTC'):
+ def order_book(self, couple = 'KHS/LTC'):
   return self.api_call('order_book', {}, 0, couple)
 
- def trade_history(self, since = 1, couple = 'GHS/BTC'):
+ def trade_history(self, since = 1, couple = 'KHS/LTC'):
   return self.api_call('trade_history',{"since" : str(since)}, 0, couple)
 
  def balance(self):
   return self.api_call('balance', {}, 1)
 
- def current_orders(self, couple = 'GHS/BTC'):
+ def current_orders(self, couple = 'KHS/LTC'):
   return self.api_call('open_orders',{},1,couple)
 
  def cancel_order(self, order_id):
   return self.api_call('cancel_order', {"id" : order_id},1)
  
- def place_order(self, ptype = 'buy', amount = 1, price = 1, couple = 'GHS/BTC'):
+ def place_order(self, ptype = 'buy', amount = 1, price = 1, couple = 'KHS/LTC'):
   return self.api_call('place_order', {"type" : ptype, "amount" : str(amount), "price" : str(price)},1,couple)

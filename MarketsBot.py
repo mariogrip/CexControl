@@ -1,32 +1,16 @@
-#-------------------------------------------------------------------------------
-# Name:       CexControl
-# Purpose:    Automatically add mined coins on Cex.IO to GHS pool
-#
-# Author:     Eloque
-#
-# Created:    19-11-2013
-# Copyright:  (c) Eloque 2013
-# Licence:    Free to use, copy and distribute as long as I'm credited
-#             Provided as is, use at your own risk and for your own benefit
-# Donate BTC: 1Lehv8uMSMyYyY7ZFTN1NiRj8X24E56rvV
-#-------------------------------------------------------------------------------
 
 from __future__ import print_function
 
-import cexapi
+import mapi
 import re
 import time
 import json
 import sys
-
-## just place till P3
 import urllib2
 
-version = "0.5.6"
+version = "0.0.1"
 
-NMCThreshold = 0.00010000
-BTCThreshold = 0.00000100
-EfficiencyThreshold = 2.5
+LTCThreshold = 0.00010000
 
 def LoadSettings():
 
@@ -34,7 +18,7 @@ def LoadSettings():
 
     try:
 
-        fp = open("CexControlSettings.conf")
+        fp = open("MarketsBotSettings.conf")
         settings = json.load(fp)
 
         if ( settings ):
@@ -59,7 +43,7 @@ def CreateSettings():
     settings = { "username":str(username), "key":str(key), "secret":str(secret) }
 
     try:
-        json.dump(settings, open("CexControlSettings.conf", 'w'))
+        json.dump(settings, open("MarketsBotSettings.conf", 'w'))
         print ("")
         print ("Configuration file created, attempting reload")
         print ("")
@@ -70,7 +54,7 @@ def CreateSettings():
 
 def main():
 
-    print ("======= CexControl version %s =======" % version)
+    print ("======= MarketsBot version %s =======" % version)
 
     ParseArguments()
 
@@ -85,13 +69,13 @@ def main():
     api_secret  = str(settings['secret'])
 
     try:
-        context = cexapi.api(username, api_key, api_secret)
+        context = mapi.api(username, api_key, api_secret)
         balance = context.balance()
 
         print ("========================================")
 
         print ("Account       : %s" % username)
-        print ("GHS balance   : %s" % balance['GHS']['available'])
+        print ("KHS balance   : %s" % balance['KHS']['available'])
 
         print ("========================================")
 
@@ -108,7 +92,7 @@ def main():
 
         print ("")
 
-        print ("Could not connect Cex.IO, exiting")
+        print ("Could not connect Markets.cx, exiting")
         print ("== !! ============================ !! ==")
         exit()
 
@@ -122,40 +106,16 @@ def main():
             CancelOrder(context)
 
             ##balance = context.balance()
-            GHSBalance = GetBalance(context, 'GHS')
-            print ("GHS balance: %s" % GHSBalance)
+            KHSBalance = GetBalance(context, 'KHS')
+            print ("KHS balance: %s" % KHSBalance)
             print ("")
-
-            TargetCoin = GetTargetCoin(context)
-
-            print ("Target Coin set to: %s" % TargetCoin[0])
-            print ("")
-
-            print ( "Efficiency threshold: %s" % EfficiencyThreshold )
-            print ( "Efficiency possible: %0.2f" % TargetCoin[1] )
-            
-            if (TargetCoin[1] >= EfficiencyThreshold ):
-                arbitrate = True
-                print ("Arbitration desired, trade coins for target coin")
-            else:
-                arbitrate = False
-                print ("Arbitration not desired, hold non target coins this cycle")
+      
 
             print ("")
-            PrintBalance( context, "BTC")
-            PrintBalance( context, "NMC")                
-                
-            if (TargetCoin[0] == "BTC"):               
-                if ( arbitrate ):
-                    ReinvestCoin(context, "NMC", NMCThreshold, TargetCoin[0] )
-                
-                ReinvestCoin(context, "BTC", BTCThreshold, "GHS" )
+            PrintBalance( context, "LTC")            
+                             
+            ReinvestCoin(context, "LTC", LTCThreshold, "KHS" )
 
-            if (TargetCoin[0] == "NMC"):               
-                if ( arbitrate ):
-                    ReinvestCoin(context, "BTC", BTCThreshold, TargetCoin[0] )
-                    
-                ReinvestCoin(context, "NMC", NMCThreshold, "GHS" )
 
         except urllib2.HTTPError, err:
             print ("HTTPError :%s" % err)
@@ -202,30 +162,12 @@ def ConvertUnicodeFloatToFloat( UnicodeFloat ):
     return NewFloat
 
 def CancelOrder(context):
-    ## BTC Order cancel
-    order = context.current_orders("GHS/BTC")
+    ## LTC Order cancel
+    order = context.current_orders("KHS/LTC")
     for item in order:
         try:
             context.cancel_order(item['id'])
-            print ("GHS/BTC Order %s canceled" % item['id'])
-        except:
-            print ("Cancel order failed")
-
-    ## NMC Order cancel
-    order = context.current_orders("GHS/NMC")
-    for item in order:
-        try:
-            context.cancel_order(item['id'])
-            print ("GHS/NMC Order %s canceled" % item['id'])
-        except:
-            print ("Cancel order failed")
-
-    ## NMC Order cancel
-    order = context.current_orders("NMC/BTC")
-    for item in order:
-        try:
-            context.cancel_order(item['id'])
-            print ("BTC/NMC Order %s canceled" % item['id'])
+            print ("KHS/LTC Order %s canceled" % item['id'])
         except:
             print ("Cancel order failed")
 
@@ -261,7 +203,7 @@ def GetContext():
     api_secret  = str(settings['secret'])
 
     try:
-        context = cexapi.api(username, api_key, api_secret)
+        context = mapi.api(username, api_key, api_secret)
 
     except:
         print (context)
@@ -272,7 +214,7 @@ def ParseArguments():
     arguments = sys.argv
 
     if (len(arguments) > 1):
-        print ("CexControl started with arguments")
+        print ("MarketsBot started with arguments")
         print ("")
 
         ## Remove the filename itself
@@ -304,6 +246,13 @@ def ReinvestCoin(Context, CoinName, Threshold, TargetCoin ):
 
         TradeCoin( Context, CoinName, TargetCoin )
 
+def GetPriceByCoin(Context, CoinName, TargetCoin ):
+
+    Ticker = GetTickerName( CoinName, TargetCoin )
+
+    return GetPrice(Context, Ticker)
+
+## Fall back function to get TickerName
 
 ## Trade one coin for another
 def TradeCoin( Context, CoinName, TargetCoin ):
@@ -339,7 +288,7 @@ def TradeCoin( Context, CoinName, TargetCoin ):
 
     ## Hack, to differentiate between buy and sell
     action = ''
-    if TargetCoin == "BTC":
+    if TargetCoin == "LTC":
         action = 'sell'
         AmountToBuy = Saldo ## sell the complete balance!
         print ("To sell adjusted to : %.8f NMC" % AmountToBuy)
@@ -369,75 +318,12 @@ def FormatFloat( number):
     number = unicode("%.8f" % number)
     return number
 
-## Get TargetCoin, reveal what coin we should use to buy GHS
-def GetTargetCoin(Context):
-    ## Get the Price NMC/BTC
 
-    GHS_NMCPrice = GetPrice(Context, "GHS/NMC")
-    GHS_BTCPrice = GetPrice(Context, "GHS/BTC")
-    NMC_BTCPrice = GetPrice(Context, "NMC/BTC")
-
-    BTC_NMCPrice = 1/NMC_BTCPrice
-
-    GHS_NMCPrice = 1/GHS_NMCPrice
-    GHS_BTCPrice = 1/GHS_BTCPrice
-
-    print ("1 NMC is %s GHS" % FormatFloat(GHS_NMCPrice))
-    print ("1 NMC is %s BTC" % FormatFloat(NMC_BTCPrice))
-    print ("1 BTC is %s GHS" % FormatFloat(GHS_BTCPrice))
-    print ("1 BTC is %s NMC" % FormatFloat(BTC_NMCPrice))
-
-    NMCviaBTC = NMC_BTCPrice * GHS_BTCPrice
-    BTCviaNMC = BTC_NMCPrice * GHS_NMCPrice
-
-    BTCviaNMCPercentage = BTCviaNMC / GHS_BTCPrice * 100
-    NMCviaBTCPercentage = NMCviaBTC / GHS_NMCPrice * 100
-
-    print ("")
-    print ("1 BTC via NMC is %s GHS" % FormatFloat(BTCviaNMC), end = " " )
-    print ("Efficiency : %2.2f" % BTCviaNMCPercentage)
-    print ("1 NMC via BTC is %s GHS" % FormatFloat(NMCviaBTC), end = " " )
-    print ("Efficiency : %2.2f" % NMCviaBTCPercentage)
-
-    if NMCviaBTCPercentage > BTCviaNMCPercentage:
-        coin = "BTC"
-        efficiency = NMCviaBTCPercentage - 100
-    else:
-        coin = "NMC"
-        efficiency = BTCviaNMCPercentage - 100
-
-    returnvalue = (coin, efficiency)
-    
-    print ("")
-    print ("Buy %s" % coin, end = " " )
-    print ("then use that to buy GHS")
-
-    return returnvalue
-
-## Get the price of a coin for a market value
-def GetPriceByCoin(Context, CoinName, TargetCoin ):
-
-    Ticker = GetTickerName( CoinName, TargetCoin )
-
-    return GetPrice(Context, Ticker)
 
 ## Fall back function to get TickerName
 def GetTickerName( CoinName, TargetCoin ):
 
-    Ticker = ""
-
-    if CoinName == "NMC" :
-        if TargetCoin == "GHS" :
-            Ticker = "GHS/NMC"
-        if TargetCoin == "BTC" :
-            Ticker = "NMC/BTC"
-
-    if CoinName == "BTC" :
-        if TargetCoin == "GHS" :
-            Ticker = "GHS/BTC"
-        if TargetCoin == "NMC" :
-            Ticker = "NMC/BTC"
-
+    Ticker = "KHS/LTC"
     return Ticker
 
 ## Get Price by ticker
@@ -450,7 +336,7 @@ def GetPrice(Context, Ticker):
     Bid = ConvertUnicodeFloatToFloat(ticker["bid"])
 
     ## Get average
-    Price = (Ask+Bid) / 2
+    Price = Ask
 
     ## Change price to 7 decimals
     Price = round(Price,8)
